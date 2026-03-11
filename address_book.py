@@ -1,31 +1,42 @@
+import uuid
 from typing import Dict, Optional
 
 class AddressBook:
-    """Class for storing and managing contact records."""
+    """
+    Class for managing contact records.
+    Uses unique IDs (UUID) as primary keys for each contact record.
+    """
     
     def __init__(self) -> None:
-        # Data is stored as an instance attribute
+        # Data storage where KEY is a unique UID
         self.data: Dict[str, Dict[str, Optional[str]]] = {}
 
     def add_contact(
         self, 
         name: str, 
         tel: str, 
-        address: Optional[str] = None, 
-        email: Optional[str] = None, 
-        birthday: Optional[str] = None
+        force: bool = False, 
+        **kwargs
     ) -> str:
         """
-        Adds a new contact. If the contact already exists, it updates the information.
+        Logic for adding a contact. 
+        Returns 'DUPLICATE_EXISTS' if name and phone match, 
+        unless 'force' is True.
         """
-        # We can either check if name exists or just update (overwrite)
-        # To satisfy Copilot's 'overwrite' concern, we'll return a specific message
-        message = "Contact updated." if name in self.data else "Contact added."
+        # Duplicate check logic
+        if not force:
+            for details in self.data.values():
+                if details['name'] == name and details['tel'] == tel:
+                    return "DUPLICATE_EXISTS"
+
+        # Unique identifier generation
+        uid = str(uuid.uuid4())[:8]
         
-        self.data[name] = {
+        self.data[uid] = {
+            "name": name,
             "tel": tel,
-            "address": address,
-            "email": email,
-            "birthday": birthday
+            "address": kwargs.get('address'),
+            "email": kwargs.get('email'),
+            "birthday": kwargs.get('birthday')
         }
-        return f"{message} {name} is now in the address book."
+        return f"Contact '{name}' added successfully with ID: {uid}"
