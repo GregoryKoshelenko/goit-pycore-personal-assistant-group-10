@@ -8,15 +8,10 @@ from the AddressBook.
 from pathlib import Path
 import sys
 
-# Allow importing validators from both old and new folder layouts.
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CANDIDATE_DIRS = [
-    REPO_ROOT / "feature" / "Validate-Contact-Data",
-    REPO_ROOT / "features" / "validators",
-]
-for validators_dir in CANDIDATE_DIRS:
-    if validators_dir.exists() and str(validators_dir) not in sys.path:
-        sys.path.append(str(validators_dir))
+# Allow importing validators from sibling feature folder when run directly.
+VALIDATORS_DIR = Path(__file__).resolve().parent.parent / "Validate-Contact-Data"
+if str(VALIDATORS_DIR) not in sys.path:
+    sys.path.append(str(VALIDATORS_DIR))
 
 from validators import validate_phone, validate_email
 
