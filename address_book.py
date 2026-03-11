@@ -30,6 +30,50 @@ class AddressBook(UserDict):
                 return record
         return None
 
+    def edit_contact(
+        self,
+        name: str,
+        *,
+        new_name: str | None = None,
+        new_phones: list[str] | None = None,
+    ) -> bool:
+        record = self.find(name)
+        if record is None:
+            return False
+
+        # Rename contact and keep dictionary key in sync.
+        if new_name is not None:
+            candidate_name = new_name.strip()
+            if not candidate_name:
+                raise ValueError("New name is required")
+
+            existing = self.find(candidate_name)
+            if existing is not None and existing is not record:
+                raise ValueError("Contact with this name already exists")
+
+            old_key = record.name
+            record.name = candidate_name
+            if old_key in self.data:
+                del self.data[old_key]
+            self.data[record.name] = record
+
+        # Replace all phones for contact (if provided).
+        if new_phones is not None:
+            normalized = [normalize_phone(phone) for phone in new_phones if normalize_phone(phone)]
+            record.phones = normalized
+            self.data[record.name] = record
+
+        return True
+
+    def delete_contact(self, name: str) -> bool:
+        record = self.find(name)
+        if record is None:
+            return False
+        if record.name in self.data:
+            del self.data[record.name]
+            return True
+        return False
+
     def search(self, query: str) -> list[Record]:
         query_text = (query or "").strip().lower()
         if not query_text:
