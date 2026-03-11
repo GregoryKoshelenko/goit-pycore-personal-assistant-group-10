@@ -23,6 +23,16 @@ for validators_dir in CANDIDATE_DIRS:
 from validators import validate_email, validate_phone
 
 
+class _EmailField:
+    """Fallback field object for projects that expect .value on email."""
+
+    def __init__(self, value: str):
+        self.value = value
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+
 def _value(field: Any) -> Any:
     return field.value if hasattr(field, "value") else field
 
@@ -42,6 +52,28 @@ def _find_record(book: Any, name: str) -> tuple[Any | None, Any | None]:
         if target == key_name or target == record_name:
             return key, record
     return None, None
+
+
+def _build_email_field(book: Any, email_value: str) -> Any:
+    # Reuse existing email field type from any record in the book when possible.
+    for existing_record in getattr(book, "data", {}).values():
+        candidate = getattr(existing_record, "email", None)
+        if candidate is None or not hasattr(candidate, "value"):
+            continue
+
+        email_type = type(candidate)
+        try:
+            return email_type(email_value)
+        except Exception:
+            # If constructor signature is different, try direct assignment.
+            try:
+                instance = email_type.__new__(email_type)
+                instance.value = email_value
+                return instance
+            except Exception:
+                continue
+
+    return _EmailField(email_value)
 
 
 def edit_contact_name(book: Any, current_name: str, new_name: str) -> bool:
@@ -122,13 +154,12 @@ def edit_contact_email(book: Any, name: str, new_email: str) -> bool:
     if record is None:
         return False
 
+    email_value = new_email.strip()
     email_field = getattr(record, "email", None)
-    if email_field is None:
-        record.email = new_email.strip()
-    elif hasattr(email_field, "value"):
-        email_field.value = new_email.strip()
+    if email_field is not None and hasattr(email_field, "value"):
+        email_field.value = email_value
     else:
-        record.email = new_email.strip()
+        record.email = _build_email_field(book, email_value)
     return True
 
 
