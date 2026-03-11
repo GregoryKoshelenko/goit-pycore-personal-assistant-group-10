@@ -17,9 +17,16 @@ class PickleDBProvider(DBProvider):
         if not self.file_path.exists():
             return {}
 
-        with self.file_path.open("rb") as file:
-            data: object = pickle.load(file)
+        try:
+            with self.file_path.open("rb") as file:
+                data: object = pickle.load(file)
+        except (pickle.UnpicklingError, EOFError):
+            # Return an empty contacts mapping if the pickle file is corrupted or empty.
+            return {}
 
+        if not isinstance(data, dict):
+            # Unexpected data type; treat as no contacts rather than failing at runtime.
+            return {}
         return cast(Contacts, data)
 
     def save_contacts(self, contacts: Contacts) -> None:

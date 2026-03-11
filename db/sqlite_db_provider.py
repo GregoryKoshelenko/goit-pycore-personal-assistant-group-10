@@ -13,7 +13,7 @@ class SQLiteDBProvider(DBProvider):
     def __init__(self, db_path: str = "contacts.db") -> None:
         self.db_path: Path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.engine = create_engine(f"sqlite:///{self.db_path.resolve()}", future=True)
+        self.engine = create_engine(f"sqlite:///{self.db_path.resolve()}")
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         self._init_db()
 
