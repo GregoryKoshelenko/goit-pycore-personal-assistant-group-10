@@ -82,12 +82,12 @@ class NotesBook:
         return [n for n in self._notes.values() if query_lower in n.text.lower()]
 
     def search_by_tags(self, tags: List[str]) -> List[Note]:
-        tags_lower = {t.lower() for t in tags}
+        tags_lower = {t.strip().lower() for t in tags if t.strip()}
 
         def match(note: Note) -> int:
             return len(tags_lower.intersection({t.lower() for t in note.tags}))
 
         notes_with_score = [(note, match(note)) for note in self._notes.values()]
-        filtered = [n for n, score in notes_with_score if score > 0]
-        filtered.sort(key=lambda n: match(n), reverse=True)
-        return filtered
+        filtered_with_score = [(n, score) for n, score in notes_with_score if score > 0]  
+        filtered_with_score.sort(key=lambda item: item[1], reverse=True)  
+        return [n for n, _ in filtered_with_score]
