@@ -1,3 +1,11 @@
+"""Simple in-memory note-taking utility.
+
+Contains a Note dataclass and a NotesBook class implementing
+basic create/read/update/delete operations along with text
+and tag-based search. All public APIs operate on English
+strings to match repository documentation.
+"""
+
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
@@ -9,8 +17,11 @@ class Note:
 
 
 class NotesBook:
-    """
-    Колекція нотаток із підтримкою пошуку та роботи з тегами.
+    """A collection of notes with support for searching and tagging.
+
+    Notes are stored in memory and assigned incremental integer
+    identifiers.  Text searches are case‑insensitive and tags
+    are normalized to lowercase to ease matching.
     """
 
     def __init__(self) -> None:
@@ -37,20 +48,22 @@ class NotesBook:
         text: Optional[str] = None,
         tags: Optional[List[str]] = None,
     ) -> Note:
-        """
-        Безпечне редагування нотатки за id.
+        """Safely update a note by its identifier.
 
-        - Якщо `text` is None — текст не змінюється
-        - Якщо `tags` is None — теги не змінюються
+        Parameters are optional; the corresponding field is left
+        unchanged when the argument is ``None``.
+
+        - ``text``: new note body; stripped and validated non-empty
+        - ``tags``: list of tag strings to replace the current set
         """
         note = self.get_note(note_id)
         if note is None:
-            raise KeyError(f"Нотатку з id={note_id} не знайдено.")
+            raise KeyError(f"Note with id={note_id} not found.")
 
         if text is not None:
             text = text.strip()
             if not text:
-                raise ValueError("Текст нотатки не може бути порожнім.")
+                raise ValueError("Note text cannot be empty.")
             note.text = text
 
         if tags is not None:
