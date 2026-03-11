@@ -75,6 +75,6 @@ class NotesBook:
             return len(tags_lower.intersection({t.lower() for t in note.tags}))
 
         notes_with_score = [(note, match(note)) for note in self._notes.values()]
-        filtered = [n for n, score in notes_with_score if score > 0]
-        filtered.sort(key=lambda n: match(n), reverse=True)
-        return filtered
+        filtered_with_score = [(n, score) for n, score in notes_with_score if score > 0]
+        filtered_with_score.sort(key=lambda item: item[1], reverse=True)
+        return [n for n, _ in filtered_with_score]
