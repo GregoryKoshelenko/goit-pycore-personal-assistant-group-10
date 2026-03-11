@@ -1,11 +1,3 @@
-"""Simple in-memory note-taking utility.
-
-Contains a Note dataclass and a NotesBook class implementing
-basic create/read/update/delete operations along with text
-and tag-based search. All public APIs operate on English
-strings to match repository documentation.
-"""
-
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
