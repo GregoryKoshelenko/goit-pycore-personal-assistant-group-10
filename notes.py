@@ -32,7 +32,7 @@ class NotesBook:
         note = Note(
             id=self._next_id,
             text=text,
-            tags=[t.lower() for t in (tags or [])],
+            tags=[t.strip().lower() for t in (tags or []) if t.strip()],
         )
         self._notes[note.id] = note
         self._next_id += 1
