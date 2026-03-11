@@ -69,7 +69,7 @@ class NotesBook:
         return [n for n in self._notes.values() if query_lower in n.text.lower()]
 
     def search_by_tags(self, tags: List[str]) -> List[Note]:
-        tags_lower = {t.lower() for t in tags}
+        tags_lower = {t.strip().lower() for t in tags if t.strip()}
 
         def match(note: Note) -> int:
             return len(tags_lower.intersection({t.lower() for t in note.tags}))
