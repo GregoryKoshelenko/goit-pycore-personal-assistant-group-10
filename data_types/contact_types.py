@@ -1,11 +1,11 @@
-from typing import TypedDict
+from typing import Dict, NotRequired, TypedDict
 
 
 class Contact(TypedDict):
-    email: str
-    tel: str
     name: str
-    birthday: str
+    phones: list[str]
+    email: NotRequired[str]
+    birthday: NotRequired[str]
 
 
-Contacts = dict[str, Contact]
+Contacts = Dict[int, Contact]

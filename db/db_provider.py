@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
 
-from data_types.contact_types import Contact, Contacts
-
 
 class DBProvider(ABC):
     @abstractmethod
-    def get_contacts(self) -> Contacts:
-        """Return all contacts as a dictionary."""
+    def load_table(self, table_name: str) -> dict[int, object]:
+        """Return full table data as id->item mapping."""
 
     @abstractmethod
-    def save_contacts(self, contacts: Contacts) -> None:
-        """Persist the full contacts dictionary."""
+    def save_table(self, table_name: str, table: dict[int, object]) -> None:
+        """Persist full table data."""
 
     @abstractmethod
-    def get_contact_by_email(self, email: str) -> Contact | None:
-        """Return one contact by email or None when not found."""
+    def load_item(self, table_name: str, item_id: int) -> object | None:
+        """Return single item by id from selected table."""
 
     @abstractmethod
-    def save_contact(self, contact: Contact, contact_id: str | None = None) -> None:
-        """Persist one contact under its id."""
+    def save_item(self, table_name: str, item_id: int, item: object) -> None:
+        """Persist one item by id into selected table."""
