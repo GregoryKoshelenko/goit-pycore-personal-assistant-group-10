@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "personal-assistant-book"
+version = "0.1.0"
+description = "Personal assistant CLI for contacts and notes"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "SQLAlchemy>=2.0.0",
+    "colorama>=0.4.6",
+]
+
+[project.scripts]
+book = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "address_book", "notes", "welcome_message", "commands"]
+packages = ["db", "orm", "data_types"]
