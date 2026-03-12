@@ -1,16 +1,13 @@
 import pickle
 from pathlib import Path
-from typing import TypedDict, cast
-
-from data_types.contact_types import Contacts
-from data_types.note_types import Notes
+from typing import TypedDict
 
 from db.db_provider import DBProvider
 
 
 class PickleStorage(TypedDict):
-    contacts: Contacts
-    notes: Notes
+    contacts: dict[int, object]
+    notes: dict[int, object]
 
 
 class PickleDBProvider(DBProvider):
@@ -20,11 +17,11 @@ class PickleDBProvider(DBProvider):
 
     def load_table(self, table_name: str) -> dict[int, object]:
         storage = self._load_storage()
-        return cast(dict[int, object], storage[table_name])
+        return storage[table_name]
 
     def save_table(self, table_name: str, table: dict[int, object]) -> None:
         storage = self._load_storage()
-        storage[table_name] = cast(Contacts | Notes, table)
+        storage[table_name] = table
         self._save_storage(storage)
 
     def load_item(self, table_name: str, item_id: int) -> object | None:
@@ -63,9 +60,7 @@ class PickleDBProvider(DBProvider):
             contacts_raw = {}
         if not isinstance(notes_raw, dict):
             notes_raw = {}
-        contacts = cast(Contacts, contacts_raw)
-        notes = cast(Notes, notes_raw)
-        return {"contacts": contacts, "notes": notes}
+        return {"contacts": contacts_raw, "notes": notes_raw}
 
     def _save_storage(self, storage: PickleStorage) -> None:
         with self.file_path.open("wb") as file:
