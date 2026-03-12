@@ -3,20 +3,55 @@ from dataclasses import dataclass, field
 import re
 
 
+PHONE_PATTERN = r"^\(\d{3}\)\d{3}-\d{2}-\d{2}$"
+EMAIL_PATTERN = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+
+
 def normalize_phone(value: str) -> str:
     return re.sub(r"\D", "", value or "")
+
+
+def validate_phone(phone: str) -> bool:
+    if not isinstance(phone, str):
+        return False
+    return bool(re.fullmatch(PHONE_PATTERN, phone.strip()))
+
+
+def validate_email(email: str) -> bool:
+    if not isinstance(email, str):
+        return False
+    return bool(re.fullmatch(EMAIL_PATTERN, email.strip()))
+
+
+def _validate_phone_or_raise(phone: str) -> str:
+    if not validate_phone(phone):
+        raise ValueError("Phone must match format (XXX)XXX-XX-XX")
+    return phone.strip()
+
+
+def _validate_email_or_raise(email: str | None) -> str | None:
+    if email is None:
+        return None
+    candidate = email.strip()
+    if not candidate:
+        raise ValueError("Email cannot be empty")
+    if not validate_email(candidate):
+        raise ValueError("Invalid email format")
+    return candidate
 
 
 @dataclass
 class Record:
     name: str
     phones: list[str] = field(default_factory=list)
+    email: str | None = None
 
     def __post_init__(self) -> None:
         self.name = self.name.strip()
         if not self.name:
             raise ValueError("Name is required")
-        self.phones = [normalize_phone(phone) for phone in self.phones if normalize_phone(phone)]
+        self.phones = [_validate_phone_or_raise(phone) for phone in self.phones]
+        self.email = _validate_email_or_raise(self.email)
 
 
 class AddressBook(UserDict):
@@ -36,6 +71,7 @@ class AddressBook(UserDict):
         *,
         new_name: str | None = None,
         new_phones: list[str] | None = None,
+        new_email: str | None = None,
     ) -> bool:
         record = self.find(name)
         if record is None:
@@ -59,8 +95,12 @@ class AddressBook(UserDict):
 
         # Replace all phones for contact (if provided).
         if new_phones is not None:
-            normalized = [normalize_phone(phone) for phone in new_phones if normalize_phone(phone)]
-            record.phones = normalized
+            record.phones = [_validate_phone_or_raise(phone) for phone in new_phones]
+            self.data[record.name] = record
+
+        # Update email for contact (if provided).
+        if new_email is not None:
+            record.email = _validate_email_or_raise(new_email)
             self.data[record.name] = record
 
         return True

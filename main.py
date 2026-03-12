@@ -10,9 +10,9 @@ def parse_input(user_input: str) -> tuple[str, list[str]]:
 
 def seed_book() -> AddressBook:
     book = AddressBook()
-    book.add_record(Record("Alice", ["0501234567"]))
-    book.add_record(Record("Bob", ["0670001122", "0998887766"]))
-    book.add_record(Record("Carol", ["+38 (050) 555-12-34"]))
+    book.add_record(Record("Alice", ["(050)123-45-67"], "alice@example.com"))
+    book.add_record(Record("Bob", ["(067)000-11-22", "(099)888-77-66"], "bob@example.com"))
+    book.add_record(Record("Carol", ["(050)555-12-34"]))
     return book
 
 
