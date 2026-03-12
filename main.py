@@ -69,6 +69,22 @@ def search_command(args: list[str], book: AddressBook) -> str:
     return "\n".join(lines)
 
 
+def add_contact_command(args: list[str], book: AddressBook, db: DB) -> str:
+    if len(args) < 2 or args[0].lower() != "contact":
+        return "Usage: add contact <name> <phone1> [phone2 ...]"
+
+    name = args[1].strip()
+    phones = args[2:]
+    if not name:
+        return "Contact name is required."
+
+    
+    contact_id = db.next_contact_id()
+    book.add_contact(contact_id=contact_id, name=name, phones=phones)
+    save_address_book(book, db)
+    return f"Added contact #{contact_id}: {name}."
+
+
 def add_note_command(args: list[str], notes_book: NotesBook, db: DB) -> str:
     if not args:
         return "Please provide note text."
@@ -134,14 +150,19 @@ def main() -> None:
         if command in ("close", "exit"):
             print("Good bye!")
             break
-        if command == "phone":
+        elif command == "add":
+            if args and args[0].lower() == "note":
+                print(add_note_command(args[1:], notes_book, db))
+            else:
+                print(add_contact_command(args, book, db))
+        elif command == "phone":
             print(phone_command(args, book))
         elif command == "search":
             print(search_command(args, book))
         else:
             print(
                 "Invalid command. Try 'help'. Example patterns: add note <text>, "
-                "add phone <name> <phone>, delete note <id>."
+                "add contact <name> <phone>, delete note <id>."
             )
 
 
