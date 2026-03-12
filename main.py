@@ -2,6 +2,14 @@ from address_book import AddressBook, Record
 from datetime import date, timedelta
 
 
+def _safe_replace_year(value: date, year: int) -> date:
+    try:
+        return value.replace(year=year)
+    except ValueError:
+        # Handle 29 Feb for non-leap target years.
+        return value.replace(year=year, day=28)
+
+
 def parse_input(user_input: str) -> tuple[str, list[str]]:
     parts = user_input.strip().split()
     if not parts:
@@ -12,8 +20,8 @@ def parse_input(user_input: str) -> tuple[str, list[str]]:
 def seed_book() -> AddressBook:
     book = AddressBook()
     today = date.today()
-    soon_birthday = (today + timedelta(days=2)).replace(year=1992).strftime("%d.%m.%Y")
-    later_birthday = (today + timedelta(days=20)).replace(year=1990).strftime("%d.%m.%Y")
+    soon_birthday = _safe_replace_year(today + timedelta(days=2), 1992).strftime("%d.%m.%Y")
+    later_birthday = _safe_replace_year(today + timedelta(days=20), 1990).strftime("%d.%m.%Y")
 
     book.add_record(Record("Alice", ["0501234567"], soon_birthday))
     book.add_record(Record("Bob", ["0670001122", "0998887766"], later_birthday))
