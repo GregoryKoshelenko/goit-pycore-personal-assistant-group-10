@@ -246,6 +246,30 @@ def contacts_command(book: AddressBook) -> str:
     return book.render_all_contacts()
 
 
+def birthdays_command(args: list[str], book: AddressBook, prompt: PromptFn) -> str:
+    """Show upcoming birthdays for the next N days."""
+    raw_days = args[0].strip() if args else ""
+    while not raw_days:
+        raw_days = prompt("For how many days to show upcoming birthdays?: ").strip()
+
+    try:
+        days = int(raw_days)
+    except ValueError:
+        return "Days must be a non-negative integer."
+
+    if days < 0:
+        return "Days must be a non-negative integer."
+
+    upcoming = book.get_upcoming_birthdays(days)
+    if not upcoming:
+        return f"No birthdays in the next {days} day(s)."
+
+    lines = [f"Birthdays in the next {days} day(s):"]
+    for item in upcoming:
+        lines.append(f"{item['name']}: {item['birthday']} (in {item['days_left']} day(s))")
+    return "\n".join(lines)
+
+
 def search_notes_command(args: list[str], notes_book: NotesBook, prompt: PromptFn) -> str:
     """Search notes by text or tags with optional prompt."""
     query = " ".join(args[1:]).strip() if len(args) > 1 else ""
@@ -293,6 +317,7 @@ def help_command() -> str:
             "- show contacts: show all contacts",
             "- show notes: show all notes",
             "- notes: show all notes",
+            "- birthdays <days>: show upcoming birthdays",
             "- search contact <query>: search contacts by name, address, phone, email, or birthday",
             "- search note <query>: search notes by text or tags",
             "- search address <query>: search contacts by address field",
@@ -341,6 +366,9 @@ def execute_command(
     if command == "phone":
         return CommandResult(kind="contact", message=phone_command(args, book, prompt))
 
+    if command == "birthdays":
+        return CommandResult(kind="contact", message=birthdays_command(args, book, prompt))
+
     if command == "search":
         if args and args[0].lower() == "address":
             return CommandResult(kind="contact", message=search_contact_field_command("address", args, book, prompt))
@@ -372,7 +400,9 @@ def execute_command(
             return CommandResult(kind="contact", message=contacts_command(book))
         if args and args[0].lower() in ("note", "notes"):
             return CommandResult(kind="note", message=notes_command(notes_book))
-        return CommandResult(kind="command", message="Usage: show contacts | show notes")
+        if args and args[0].lower() == "birthdays":
+            return CommandResult(kind="contact", message=birthdays_command(args[1:], book, prompt))
+        return CommandResult(kind="command", message="Usage: show contacts | show notes | show birthdays <days>")
 
     return CommandResult(
         kind="command",

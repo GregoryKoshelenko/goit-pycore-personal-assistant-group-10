@@ -1,5 +1,5 @@
 from collections import UserDict
-from datetime import datetime
+from datetime import date, datetime
 import re
 
 from colorama import Fore, Style
@@ -223,3 +223,40 @@ class AddressBook(UserDict):
             if matched:
                 results.append(contact)
         return results
+
+    def get_upcoming_birthdays(self, days: int) -> list[dict[str, str | int]]:
+        if not isinstance(days, int) or days < 0:
+            raise ValueError("Days must be a non-negative integer")
+
+        today = date.today()
+        upcoming: list[dict[str, str | int]] = []
+
+        for contact in self.data.values():
+            if contact.birthday is None:
+                continue
+
+            birthday = contact.birthday.date() if isinstance(contact.birthday, datetime) else contact.birthday
+            try:
+                next_birthday = birthday.replace(year=today.year)
+            except ValueError:
+                # Handles 29 February in non-leap year.
+                next_birthday = date(today.year, 2, 28)
+
+            if next_birthday < today:
+                try:
+                    next_birthday = birthday.replace(year=today.year + 1)
+                except ValueError:
+                    next_birthday = date(today.year + 1, 2, 28)
+
+            days_left = (next_birthday - today).days
+            if 0 <= days_left <= days:
+                upcoming.append(
+                    {
+                        "name": contact.name,
+                        "birthday": next_birthday.strftime("%d.%m.%Y"),
+                        "days_left": days_left,
+                    }
+                )
+
+        upcoming.sort(key=lambda item: int(item["days_left"]))
+        return upcoming
