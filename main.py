@@ -1,16 +1,46 @@
+import os
+
 from address_book import AddressBook
-from db import DB, PickleDBProvider
+from colorama import Fore, Style, init
+from commands import execute_command
+from db import DB, PickleDBProvider, SQLiteDBProvider
 from notes import NotesBook
+from welcome_message import print_welcome_message
+
+
+init(autoreset=True)
+
+
+def as_note(text: str) -> str:
+    """Colorize notes output in yellow."""
+    return f"{Fore.YELLOW}{text}{Style.RESET_ALL}"
+
+
+def as_command(text: str) -> str:
+    """Colorize command-related output in blue."""
+    return f"{Fore.BLUE}{text}{Style.RESET_ALL}"
+
+
+def as_contact(text: str) -> str:
+    """Colorize contacts output in purple."""
+    return f"{Fore.MAGENTA}{text}{Style.RESET_ALL}"
 
 
 def parse_input(user_input: str) -> tuple[str, list[str]]:
+    """Parse raw user input into command and argument tokens."""
     parts = user_input.strip().split()
     if not parts:
         return "", []
     return parts[0].lower(), parts[1:]
 
 
+def clear_screen() -> None:
+    """Clear terminal screen before rendering the welcome banner."""
+    os.system("cls" if os.name == "nt" else "clear")
+
+
 def seed_book() -> AddressBook:
+    """Create an address book with initial sample contacts."""
     book = AddressBook()
     book.add_contact(contact_id=DB.next_id(book.data), name="Alice", phones=["0501234567"])
     book.add_contact(contact_id=DB.next_id(book.data), name="Bob", phones=["0670001122", "0998887766"])
@@ -19,14 +49,17 @@ def seed_book() -> AddressBook:
 
 
 def save_address_book(book: AddressBook, db: DB) -> None:
+    """Persist the current address book state to storage."""
     db.save_contacts(book.data)
 
 
 def save_notes_book(notes: NotesBook, db: DB) -> None:
+    """Persist the current notes collection to storage."""
     db.save_notes(notes.all_notes())
 
 
 def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
+    """Load contacts and notes from storage, seeding contacts if empty."""
     contacts_data = db.load_contacts()
     notes_data = db.get_notes()
 
@@ -40,130 +73,43 @@ def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
     return book, notes_book
 
 
-def phone_command(args: list[str], book: AddressBook) -> str:
-    if not args:
-        return "Please provide contact name."
-
-    name = " ".join(args)
-    record = book.find(name)
-    if record is None:
-        return f"Contact {name} not found."
-    if not record.phones:
-        return f"No phone numbers for {name}."
-    return f"{record.name}: {', '.join(record.phones)}"
-
-
-def search_command(args: list[str], book: AddressBook) -> str:
-    if not args:
-        return "Please provide search query."
-
-    query = " ".join(args)
-    results = book.search(query)
-    if not results:
-        return "No contacts found."
-
-    lines: list[str] = []
-    for record in results:
-        phones = ", ".join(record.phones) if record.phones else "-"
-        lines.append(f"{record.name}: {phones}")
-    return "\n".join(lines)
-
-
-def add_contact_command(args: list[str], book: AddressBook, db: DB) -> str:
-    if len(args) < 2 or args[0].lower() != "contact":
-        return "Usage: add contact <name> <phone1> [phone2 ...]"
-
-    name = args[1].strip()
-    phones = args[2:]
-    if not name:
-        return "Contact name is required."
-
-    
-    contact_id = db.next_contact_id()
-    book.add_contact(contact_id=contact_id, name=name, phones=phones)
-    save_address_book(book, db)
-    return f"Added contact #{contact_id}: {name}."
-
-
-def add_note_command(args: list[str], notes_book: NotesBook, db: DB) -> str:
-    if not args:
-        return "Please provide note text."
-    text = " ".join(args).strip()
-    if not text:
-        return "Please provide note text."
-
-    note_id = db.next_note_id()
-    notes_book.add_note(note_id=note_id, text=text)
-    save_notes_book(notes_book, db)
-    return f"Added note #{note_id}."
-
-
-def notes_command(notes_book: NotesBook) -> str:
-    notes_by_id = notes_book.all_notes()
-    if not notes_by_id:
-        return "No notes found."
-    return "\n".join(
-        f"#{note_id}: {note.text}" + (f" [tags: {', '.join(note.tags)}]" if note.tags else "")
-        for note_id, note in notes_by_id.items()
-    )
-
-
-def search_notes_command(args: list[str], notes_book: NotesBook) -> str:
-    if not args:
-        return "Please provide search query for notes."
-
-    query = " ".join(args)
-    results_by_id = notes_book.search_by_text(query)
-    if not results_by_id:
-        return "No notes found."
-    return "\n".join(
-        f"#{note_id}: {note.text}" + (f" [tags: {', '.join(note.tags)}]" if note.tags else "")
-        for note_id, note in results_by_id.items()
-    )
-
-
-def delete_note_command(args: list[str], notes_book: NotesBook, db: DB) -> str:
-    if not args:
-        return "Please provide note id."
-    try:
-        note_id = int(args[0])
-    except ValueError:
-        return "Note id must be an integer."
-
-    if not notes_book.remove_note(note_id):
-        return f"Note #{note_id} not found."
-
-    save_notes_book(notes_book, db)
-    return f"Deleted note #{note_id}."
+def prompt_user(prompt_text: str) -> str:
+    """Prompt the user with command color and return stripped text."""
+    return input(as_command(prompt_text)).strip()
 
 
 def main() -> None:
-    provider = PickleDBProvider("storage/assistant.pkl")
+    """Run the interactive assistant command loop."""
+    provider = SQLiteDBProvider("storage/assistant.db")
+    # Alternative:
+    # provider = PickleDBProvider("storage/assistant.pkl")
     db = DB(provider)
     book, notes_book = load_books(db)
-    print("Welcome to assistant bot!")
+    clear_screen()
+    print_welcome_message()
 
     while True:
-        user_input = input("Enter a command: ").strip()
+        user_input = prompt_user("Enter a command(try 'help'): ")
         command, args = parse_input(user_input)
 
-        if command in ("close", "exit"):
-            print("Good bye!")
-            break
-        elif command == "add":
-            if args and args[0].lower() == "note":
-                print(add_note_command(args[1:], notes_book, db))
-            else:
-                print(add_contact_command(args, book, db))
-        elif command == "phone":
-            print(phone_command(args, book))
-        elif command == "search":
-            print(search_command(args, book))
+        result = execute_command(
+            command,
+            args,
+            book=book,
+            notes_book=notes_book,
+            db=db,
+            prompt=prompt_user,
+        )
+
+        if result.kind == "note":
+            print(as_note(result.message))
+        elif result.kind == "contact":
+            print(as_contact(result.message))
         else:
-            print(
-                "Invalid command. Try 'help'. Example patterns: add note <text>, "
-                "add contact <name> <phone>, delete note <id>."
-            )
+            print(as_command(result.message))
+
+        if result.should_exit:
+            break
 
 
 if __name__ == "__main__":

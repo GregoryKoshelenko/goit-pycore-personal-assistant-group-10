@@ -1,6 +1,9 @@
-# Personal Assistant CLI
+# Personal Assistant CLI by Purple Unicorns 🦄🦄🦄🦄
 
 Simple personal assistant CLI app for storing contacts and notes
+
+## Demo 
+[![asciicast](https://asciinema.org/a/832566.svg)](https://asciinema.org/a/832566)
 
 ## What it does
 - Adds and saves contacts
@@ -21,7 +24,7 @@ source .venv/bin/activate
 2. Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -e .
 ```
 
 ## Run
@@ -29,8 +32,13 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+or just
 
-On first run, the app creates storage at `storage/assistant.pkl`.
+```bash
+book
+```
+
+On first run, the app creates storage at `storage/assistant.pkl` or `storage/assistant.db` depending on DB provider.
 
 ## Available Commands
 

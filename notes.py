@@ -1,6 +1,19 @@
+import re
 from typing import List, Optional
 
+from colorama import Back, Fore, Style
 from data_types.note_types import Note, Notes
+
+
+def highlight_matches(value: str, query: str, *, base_color: str = Fore.YELLOW) -> str:
+    """Highlight matched query fragments inside note text."""
+    if not value or not query:
+        return value
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    return pattern.sub(
+        lambda match: f"{Back.YELLOW}{Fore.BLACK}{Style.BRIGHT}{match.group(0)}{Style.NORMAL}{Back.RESET}{base_color}",
+        value,
+    )
 
 
 class NotesBook:
@@ -12,21 +25,15 @@ class NotesBook:
     """
 
     def __init__(self, notes_data: Notes | None = None) -> None:
+        """Initialize notes storage with optional preloaded data."""
         self._notes: Notes = notes_data.copy() if notes_data else {}
 
     def add_note(self, note_id: int, text: str, tags: Optional[List[str]] = None) -> int:
         """Create and add a new note to the collection."""
-        normalized_text = text.strip()
-        if not normalized_text:
-            raise ValueError("Note text cannot be empty.")
-
         if note_id in self._notes:
             raise ValueError(f"Note id={note_id} already exists.")
 
-        self._notes[note_id] = Note(
-            text=normalized_text,
-            tags=[t.strip().lower() for t in (tags or []) if t.strip()],
-        )
+        self._notes[note_id] = Note(text=text, tags=tags or [])
         return note_id
 
     def get_note(self, note_id: int) -> Optional[Note]:
@@ -49,14 +56,12 @@ class NotesBook:
         if note is None:
             raise KeyError(f"Note with id={note_id} not found.")
 
-        if text is not None:
-            text = text.strip()
-            if not text:
-                raise ValueError("Note text cannot be empty.")
-            note.text = text
-
-        if tags is not None:
-            note.tags = [t.strip().lower() for t in tags if t.strip()]
+        updated = Note(
+            text=note.text if text is None else text,
+            tags=note.tags if tags is None else tags,
+        )
+        note.text = updated.text
+        note.tags = updated.tags
 
         return note
 
@@ -68,10 +73,64 @@ class NotesBook:
         """Return all existing notes keyed by ID."""
         return self._notes
 
+    @staticmethod
+    def format_note(note_id: int, note: Note) -> str:
+        """Render one note as a single printable line."""
+        return f"#{note_id}: {note.text}" + (f" [tags: {', '.join(note.tags)}]" if note.tags else "")
+
+    @staticmethod
+    def format_note_search_result(note_id: int, note: Note, query: str) -> str:
+        """Render one note with highlighted query matches."""
+        tags = ", ".join(highlight_matches(tag, query) for tag in note.tags)
+        return f"#{note_id}: {highlight_matches(note.text, query)}" + (f" [tags: {tags}]" if tags else "")
+
+    def render_all_notes(self) -> str:
+        """Render all notes as a multi-line string."""
+        if not self._notes:
+            return "No notes found."
+        return "\n".join(self.format_note(note_id, note) for note_id, note in self._notes.items())
+
+    def render_search(self, query: str) -> str:
+        """Render notes that match a text query or tags."""
+        results_by_id = self.search(query)
+        if not results_by_id:
+            return "No notes found."
+        return "\n".join(self.format_note_search_result(note_id, note, query) for note_id, note in results_by_id.items())
+
+    def render_search_by_field(self, field_name: str, query: str) -> str:
+        """Render notes that match a query in one specific field."""
+        results_by_id = self.search_by_field(field_name, query)
+        if not results_by_id:
+            return "No notes found."
+        return "\n".join(self.format_note_search_result(note_id, note, query) for note_id, note in results_by_id.items())
+
     def search_by_text(self, query: str) -> Notes:
-        """Search for notes containing the query string (case-insensitive)."""
+        """Search for notes containing the query string in text."""
         query_lower = query.lower()
         return {note_id: note for note_id, note in self._notes.items() if query_lower in note.text.lower()}
+
+    def search(self, query: str) -> Notes:
+        """Search for notes containing the query in text or tags."""
+        query_lower = query.lower()
+        return {
+            note_id: note
+            for note_id, note in self._notes.items()
+            if query_lower in note.text.lower() or any(query_lower in tag.lower() for tag in note.tags)
+        }
+
+    def search_by_field(self, field_name: str, query: str) -> Notes:
+        """Search for notes containing the query in a specific field."""
+        query_lower = query.lower()
+        normalized_field = field_name.strip().lower()
+        return {
+            note_id: note
+            for note_id, note in self._notes.items()
+            if (
+                normalized_field == "note" and (query_lower in note.text.lower() or any(query_lower in tag.lower() for tag in note.tags))
+            )
+            or (normalized_field == "text" and query_lower in note.text.lower())
+            or (normalized_field == "tag" and any(query_lower in tag.lower() for tag in note.tags))
+        }
 
     def search_by_tags(self, tags: List[str]) -> Notes:
         """Search notes by tags, sorting them by relevance (number of matching tags)."""
