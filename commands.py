@@ -109,6 +109,8 @@ def add_contact_command(args: list[str], book: AddressBook, db: DB, prompt: Prom
             if reply == "cancel":
                 return "Contact creation canceled."
 
+            # Clear positional arguments so the next iteration uses interactive prompts
+            args = ["contact"]
             continue
 
     db.save_contacts(book.data)
