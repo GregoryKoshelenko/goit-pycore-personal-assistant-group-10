@@ -3,10 +3,6 @@ from dataclasses import dataclass, field
 import re
 
 
-PHONE_PATTERN = r"^\(\d{3}\)\d{3}-\d{2}-\d{2}$"
-EMAIL_PATTERN = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-
-
 def normalize_phone(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
@@ -14,13 +10,13 @@ def normalize_phone(value: str) -> str:
 def validate_phone(phone: str) -> bool:
     if not isinstance(phone, str):
         return False
-    return bool(re.fullmatch(PHONE_PATTERN, phone.strip()))
+    return bool(re.fullmatch(r"^\(\d{3}\)\d{3}-\d{2}-\d{2}$", phone.strip()))
 
 
 def validate_email(email: str) -> bool:
     if not isinstance(email, str):
         return False
-    return bool(re.fullmatch(EMAIL_PATTERN, email.strip()))
+    return bool(re.fullmatch(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email.strip()))
 
 
 def _validate_phone_or_raise(phone: str) -> str:
@@ -123,7 +119,9 @@ class AddressBook(UserDict):
         results: list[Record] = []
         for record in self.data.values():
             name_match = query_text in record.name.lower()
-            phone_match = bool(query_digits) and any(query_digits in phone for phone in record.phones)
+            phone_match = bool(query_digits) and any(
+                query_digits in normalize_phone(phone) for phone in record.phones
+            )
             if name_match or phone_match:
                 results.append(record)
         return results
