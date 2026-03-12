@@ -8,9 +8,11 @@ def normalize_phone(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
-def parse_birthday(value: str | date | None) -> date | None:
+def parse_birthday(value: str | date | datetime | None) -> date | None:
     if value is None:
         return None
+    if isinstance(value, datetime):
+        return value.date()
     if isinstance(value, date):
         return value
     if not isinstance(value, str):
@@ -30,7 +32,7 @@ def parse_birthday(value: str | date | None) -> date | None:
 class Record:
     name: str
     phones: list[str] = field(default_factory=list)
-    birthday: str | date | None = None
+    birthday: str | date | datetime | None = None
 
     def __post_init__(self) -> None:
         self.name = self.name.strip()
@@ -57,7 +59,7 @@ class AddressBook(UserDict):
         *,
         new_name: str | None = None,
         new_phones: list[str] | None = None,
-        new_birthday: str | date | None = None,
+        new_birthday: str | date | datetime | None = None,
     ) -> bool:
         record = self.find(name)
         if record is None:
