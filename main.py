@@ -26,7 +26,7 @@ def phone_command(args: list[str], book: AddressBook) -> str:
         return f"Contact {name} not found."
     if not record.phones:
         return f"No phone numbers for {name}."
-    return f"{record.name}: {', '.join(record.phones)}"
+    return f"{record.name.value}: {', '.join(phone.value for phone in record.phones)}"
 
 
 def search_command(args: list[str], book: AddressBook) -> str:
@@ -40,8 +40,8 @@ def search_command(args: list[str], book: AddressBook) -> str:
 
     lines: list[str] = []
     for record in results:
-        phones = ", ".join(record.phones) if record.phones else "-"
-        lines.append(f"{record.name}: {phones}")
+        phones = ", ".join(phone.value for phone in record.phones) if record.phones else "-"
+        lines.append(f"{record.name.value}: {phones}")
     return "\n".join(lines)
 
 
