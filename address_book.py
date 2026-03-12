@@ -1,33 +1,52 @@
 from collections import UserDict
-from dataclasses import dataclass, field
 import re
+
+from data_types.contact_types import Contact, Contacts
 
 
 def normalize_phone(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
-@dataclass
-class Record:
-    name: str
-    phones: list[str] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        self.name = self.name.strip()
-        if not self.name:
-            raise ValueError("Name is required")
-        self.phones = [normalize_phone(phone) for phone in self.phones if normalize_phone(phone)]
-
-
 class AddressBook(UserDict):
-    def add_record(self, record: Record) -> None:
-        self.data[record.name] = record
+    def __init__(self, contacts: Contacts | None = None) -> None:
+        super().__init__()
+        if contacts:
+            self.data.update(contacts)
 
-    def find(self, name: str) -> Record | None:
+    def add_contact(
+        self,
+        *,
+        name: str,
+        phones: list[str] | None = None,
+        email: str | None = None,
+        birthday: str | None = None,
+        contact_id: int,
+    ) -> int:
+        normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("Name is required")
+        normalized_phones = [normalize_phone(phone) for phone in (phones or []) if normalize_phone(phone)]
+
+        contact = Contact(
+            name=normalized_name,
+            phones=normalized_phones,
+            email=(email.strip() if email and email.strip() else None),
+            birthday=(birthday.strip() if birthday and birthday.strip() else None),
+        )
+
+        effective_id = contact_id
+        if effective_id in self.data:
+            raise ValueError(f"Contact id={effective_id} already exists")
+
+        self.data[effective_id] = contact
+        return effective_id
+
+    def find(self, name: str) -> Contact | None:
         target = name.strip().lower()
-        for record in self.data.values():
-            if record.name.lower() == target:
-                return record
+        for contact in self.data.values():
+            if contact.name.lower() == target:
+                return contact
         return None
 
     def edit_contact(
@@ -37,53 +56,48 @@ class AddressBook(UserDict):
         new_name: str | None = None,
         new_phones: list[str] | None = None,
     ) -> bool:
-        record = self.find(name)
-        if record is None:
+        contact = self.find(name)
+        if contact is None:
             return False
 
-        # Rename contact and keep dictionary key in sync.
+        # Rename contact.
         if new_name is not None:
             candidate_name = new_name.strip()
             if not candidate_name:
                 raise ValueError("New name is required")
 
             existing = self.find(candidate_name)
-            if existing is not None and existing is not record:
+            if existing is not None and existing is not contact:
                 raise ValueError("Contact with this name already exists")
 
-            old_key = record.name
-            record.name = candidate_name
-            if old_key in self.data:
-                del self.data[old_key]
-            self.data[record.name] = record
+            contact.name = candidate_name
 
         # Replace all phones for contact (if provided).
         if new_phones is not None:
             normalized = [normalize_phone(phone) for phone in new_phones if normalize_phone(phone)]
-            record.phones = normalized
-            self.data[record.name] = record
+            contact.phones = normalized
 
         return True
 
     def delete_contact(self, name: str) -> bool:
-        record = self.find(name)
-        if record is None:
-            return False
-        if record.name in self.data:
-            del self.data[record.name]
-            return True
+        target = name.strip().lower()
+        for contact_id, contact in list(self.data.items()):
+            if contact.name.lower() == target:
+                del self.data[contact_id]
+                return True
+
         return False
 
-    def search(self, query: str) -> list[Record]:
+    def search(self, query: str) -> list[Contact]:
         query_text = (query or "").strip().lower()
         if not query_text:
             return []
 
         query_digits = normalize_phone(query_text)
-        results: list[Record] = []
-        for record in self.data.values():
-            name_match = query_text in record.name.lower()
-            phone_match = bool(query_digits) and any(query_digits in phone for phone in record.phones)
+        results: list[Contact] = []
+        for contact in self.data.values():
+            name_match = query_text in contact.name.lower()
+            phone_match = bool(query_digits) and any(query_digits in phone for phone in contact.phones)
             if name_match or phone_match:
-                results.append(record)
+                results.append(contact)
         return results

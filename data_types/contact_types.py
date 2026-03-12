@@ -1,11 +1,13 @@
-from typing import TypedDict
+from dataclasses import dataclass, field
+from typing import Dict
 
 
-class Contact(TypedDict):
-    email: str
-    tel: str
+@dataclass(slots=True)
+class Contact:
     name: str
-    birthday: str
+    phones: list[str] = field(default_factory=list)
+    email: str | None = None
+    birthday: str | None = None
 
 
-Contacts = dict[str, Contact]
+Contacts = Dict[int, Contact]
