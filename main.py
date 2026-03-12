@@ -1,4 +1,5 @@
 from address_book import AddressBook, Record
+from datetime import date, timedelta
 
 
 def parse_input(user_input: str) -> tuple[str, list[str]]:
@@ -10,8 +11,12 @@ def parse_input(user_input: str) -> tuple[str, list[str]]:
 
 def seed_book() -> AddressBook:
     book = AddressBook()
-    book.add_record(Record("Alice", ["0501234567"]))
-    book.add_record(Record("Bob", ["0670001122", "0998887766"]))
+    today = date.today()
+    soon_birthday = (today + timedelta(days=2)).replace(year=1992).strftime("%d.%m.%Y")
+    later_birthday = (today + timedelta(days=20)).replace(year=1990).strftime("%d.%m.%Y")
+
+    book.add_record(Record("Alice", ["0501234567"], soon_birthday))
+    book.add_record(Record("Bob", ["0670001122", "0998887766"], later_birthday))
     book.add_record(Record("Carol", ["+38 (050) 555-12-34"]))
     return book
 
@@ -45,6 +50,27 @@ def search_command(args: list[str], book: AddressBook) -> str:
     return "\n".join(lines)
 
 
+def birthdays_command(args: list[str], book: AddressBook) -> str:
+    if len(args) != 1:
+        return "Please provide number of days. Example: birthdays 7"
+
+    try:
+        days = int(args[0])
+        if days < 0:
+            return "Days must be a non-negative integer."
+    except ValueError:
+        return "Days must be a non-negative integer."
+
+    upcoming = book.get_upcoming_birthdays(days)
+    if not upcoming:
+        return f"No birthdays in the next {days} day(s)."
+
+    lines = [f"Birthdays in the next {days} day(s):"]
+    for item in upcoming:
+        lines.append(f"{item['name']}: {item['birthday']} (in {item['days_left']} day(s))")
+    return "\n".join(lines)
+
+
 def main() -> None:
     book = seed_book()
     print("Welcome to assistant bot!")
@@ -60,6 +86,8 @@ def main() -> None:
             print(phone_command(args, book))
         elif command == "search":
             print(search_command(args, book))
+        elif command == "birthdays":
+            print(birthdays_command(args, book))
         else:
             print("Invalid command.")
 
