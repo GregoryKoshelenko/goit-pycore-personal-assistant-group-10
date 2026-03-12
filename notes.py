@@ -23,10 +23,10 @@ class NotesBook:
         if note_id in self._notes:
             raise ValueError(f"Note id={note_id} already exists.")
 
-        self._notes[note_id] = {
-            "text": normalized_text,
-            "tags": [t.strip().lower() for t in (tags or []) if t.strip()],
-        }
+        self._notes[note_id] = Note(
+            text=normalized_text,
+            tags=[t.strip().lower() for t in (tags or []) if t.strip()],
+        )
         return note_id
 
     def get_note(self, note_id: int) -> Optional[Note]:
@@ -53,10 +53,10 @@ class NotesBook:
             text = text.strip()
             if not text:
                 raise ValueError("Note text cannot be empty.")
-            note["text"] = text
+            note.text = text
 
         if tags is not None:
-            note["tags"] = [t.strip().lower() for t in tags if t.strip()]
+            note.tags = [t.strip().lower() for t in tags if t.strip()]
 
         return note
 
@@ -71,14 +71,14 @@ class NotesBook:
     def search_by_text(self, query: str) -> Notes:
         """Search for notes containing the query string (case-insensitive)."""
         query_lower = query.lower()
-        return {note_id: note for note_id, note in self._notes.items() if query_lower in note["text"].lower()}
+        return {note_id: note for note_id, note in self._notes.items() if query_lower in note.text.lower()}
 
     def search_by_tags(self, tags: List[str]) -> Notes:
         """Search notes by tags, sorting them by relevance (number of matching tags)."""
         tags_lower = {t.strip().lower() for t in tags if t.strip()}
 
         def match_score(note: Note) -> int:
-            return len(tags_lower.intersection({t.lower() for t in note["tags"]}))
+            return len(tags_lower.intersection({t.lower() for t in note.tags}))
 
         notes_with_score = [(note_id, note, match_score(note)) for note_id, note in self._notes.items()]
         # Filter only notes that have at least one match
@@ -91,6 +91,6 @@ class NotesBook:
         """Return a sorted list of all unique tags present in the notebook."""
         unique_tags = set()
         for note in self._notes.values():
-            unique_tags.update(note["tags"])
+            unique_tags.update(note.tags)
         return sorted(list(unique_tags))
 

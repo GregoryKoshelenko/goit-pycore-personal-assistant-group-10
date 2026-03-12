@@ -33,7 +33,7 @@ def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
     if contacts_data:
         book = AddressBook(contacts_data)
     else:
-        book = seed_book(db)
+        book = seed_book()
         save_address_book(book, db)
 
     notes_book = NotesBook(notes_data)
@@ -48,9 +48,9 @@ def phone_command(args: list[str], book: AddressBook) -> str:
     record = book.find(name)
     if record is None:
         return f"Contact {name} not found."
-    if not record["phones"]:
+    if not record.phones:
         return f"No phone numbers for {name}."
-    return f"{record['name']}: {', '.join(record['phones'])}"
+    return f"{record.name}: {', '.join(record.phones)}"
 
 
 def search_command(args: list[str], book: AddressBook) -> str:
@@ -64,8 +64,8 @@ def search_command(args: list[str], book: AddressBook) -> str:
 
     lines: list[str] = []
     for record in results:
-        phones = ", ".join(record["phones"]) if record["phones"] else "-"
-        lines.append(f"{record['name']}: {phones}")
+        phones = ", ".join(record.phones) if record.phones else "-"
+        lines.append(f"{record.name}: {phones}")
     return "\n".join(lines)
 
 
@@ -87,7 +87,7 @@ def notes_command(notes_book: NotesBook) -> str:
     if not notes_by_id:
         return "No notes found."
     return "\n".join(
-        f"#{note_id}: {note['text']}" + (f" [tags: {', '.join(note['tags'])}]" if note["tags"] else "")
+        f"#{note_id}: {note.text}" + (f" [tags: {', '.join(note.tags)}]" if note.tags else "")
         for note_id, note in notes_by_id.items()
     )
 
@@ -101,7 +101,7 @@ def search_notes_command(args: list[str], notes_book: NotesBook) -> str:
     if not results_by_id:
         return "No notes found."
     return "\n".join(
-        f"#{note_id}: {note['text']}" + (f" [tags: {', '.join(note['tags'])}]" if note["tags"] else "")
+        f"#{note_id}: {note.text}" + (f" [tags: {', '.join(note.tags)}]" if note.tags else "")
         for note_id, note in results_by_id.items()
     )
 

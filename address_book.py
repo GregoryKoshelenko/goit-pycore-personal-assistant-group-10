@@ -28,14 +28,12 @@ class AddressBook(UserDict):
             raise ValueError("Name is required")
         normalized_phones = [normalize_phone(phone) for phone in (phones or []) if normalize_phone(phone)]
 
-        contact: Contact = {
-            "name": normalized_name,
-            "phones": normalized_phones,
-        }
-        if email and email.strip():
-            contact["email"] = email.strip()
-        if birthday and birthday.strip():
-            contact["birthday"] = birthday.strip()
+        contact = Contact(
+            name=normalized_name,
+            phones=normalized_phones,
+            email=(email.strip() if email and email.strip() else None),
+            birthday=(birthday.strip() if birthday and birthday.strip() else None),
+        )
 
         effective_id = contact_id
         if effective_id in self.data:
@@ -47,7 +45,7 @@ class AddressBook(UserDict):
     def find(self, name: str) -> Contact | None:
         target = name.strip().lower()
         for contact in self.data.values():
-            if contact["name"].lower() == target:
+            if contact.name.lower() == target:
                 return contact
         return None
 
@@ -72,19 +70,19 @@ class AddressBook(UserDict):
             if existing is not None and existing is not contact:
                 raise ValueError("Contact with this name already exists")
 
-            contact["name"] = candidate_name
+            contact.name = candidate_name
 
         # Replace all phones for contact (if provided).
         if new_phones is not None:
             normalized = [normalize_phone(phone) for phone in new_phones if normalize_phone(phone)]
-            contact["phones"] = normalized
+            contact.phones = normalized
 
         return True
 
     def delete_contact(self, name: str) -> bool:
         target = name.strip().lower()
         for contact_id, contact in list(self.data.items()):
-            if contact["name"].lower() == target:
+            if contact.name.lower() == target:
                 del self.data[contact_id]
                 return True
 
@@ -98,8 +96,8 @@ class AddressBook(UserDict):
         query_digits = normalize_phone(query_text)
         results: list[Contact] = []
         for contact in self.data.values():
-            name_match = query_text in contact["name"].lower()
-            phone_match = bool(query_digits) and any(query_digits in phone for phone in contact["phones"])
+            name_match = query_text in contact.name.lower()
+            phone_match = bool(query_digits) and any(query_digits in phone for phone in contact.phones)
             if name_match or phone_match:
                 results.append(contact)
         return results

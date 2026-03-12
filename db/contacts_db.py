@@ -1,4 +1,5 @@
-from typing import Mapping, cast
+from collections.abc import Mapping
+from typing import Any, cast
 
 from data_types.contact_types import Contact, Contacts
 from data_types.note_types import Note, Notes
@@ -23,23 +24,36 @@ class DB:
         self.provider.save_item(table_name, item_id, item)
 
     def get_contacts(self) -> Contacts:
-        return cast(Contacts, self.load_table("contacts"))
+        raw_contacts = self.load_table("contacts")
+        contacts: Contacts = {}
+        for contact_id, item in raw_contacts.items():
+            if isinstance(item, Contact):
+                contacts[contact_id] = item
+            elif isinstance(item, Mapping):
+                contacts[contact_id] = Contact.from_dict(cast(Mapping[str, Any], item))
+        return contacts
 
     def save_contacts(self, contacts: Contacts) -> None:
-        self.save_table("contacts", cast(dict[int, object], contacts))
+        serialized = {contact_id: contact.to_dict() for contact_id, contact in contacts.items()}
+        self.save_table("contacts", cast(dict[int, object], serialized))
 
     def get_contact(self, contact_id: int) -> Contact | None:
-        return cast(Contact | None, self.load_item("contacts", contact_id))
+        raw_item = self.load_item("contacts", contact_id)
+        if isinstance(raw_item, Contact):
+            return raw_item
+        if isinstance(raw_item, Mapping):
+            return Contact.from_dict(cast(Mapping[str, Any], raw_item))
+        return None
 
     def save_contact(self, contact: Contact, contact_id: int | None = None) -> int:
         effective_contact_id = contact_id or self.next_contact_id()
-        self.save_item("contacts", effective_contact_id, contact)
+        self.save_item("contacts", effective_contact_id, contact.to_dict())
         return effective_contact_id
 
     def get_contact_by_email(self, email: str) -> Contact | None:
         target = email.strip().lower()
         for contact in self.get_contacts().values():
-            if contact.get("email", "").strip().lower() == target:
+            if (contact.email or "").strip().lower() == target:
                 return contact
         return None
 
@@ -47,17 +61,30 @@ class DB:
         return self.get_contacts()
 
     def get_notes(self) -> Notes:
-        return cast(Notes, self.load_table("notes"))
+        raw_notes = self.load_table("notes")
+        notes: Notes = {}
+        for note_id, item in raw_notes.items():
+            if isinstance(item, Note):
+                notes[note_id] = item
+            elif isinstance(item, Mapping):
+                notes[note_id] = Note.from_dict(cast(Mapping[str, Any], item))
+        return notes
 
     def save_notes(self, notes: Notes) -> None:
-        self.save_table("notes", cast(dict[int, object], notes))
+        serialized = {note_id: note.to_dict() for note_id, note in notes.items()}
+        self.save_table("notes", cast(dict[int, object], serialized))
 
     def get_note(self, note_id: int) -> Note | None:
-        return cast(Note | None, self.load_item("notes", note_id))
+        raw_item = self.load_item("notes", note_id)
+        if isinstance(raw_item, Note):
+            return raw_item
+        if isinstance(raw_item, Mapping):
+            return Note.from_dict(cast(Mapping[str, Any], raw_item))
+        return None
 
     def save_note(self, note: Note, note_id: int | None = None) -> int:
         effective_note_id = note_id or self.next_note_id()
-        self.save_item("notes", effective_note_id, note)
+        self.save_item("notes", effective_note_id, note.to_dict())
         return effective_note_id
 
     @staticmethod
