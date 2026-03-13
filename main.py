@@ -1,29 +1,26 @@
+import argparse
 import os
+import sys
+from collections.abc import Callable
 
 from address_book import AddressBook
+from ai_assistant import is_chat_available
 from colorama import Fore, Style, init
-from commands import execute_command
-from db import DB, PickleDBProvider, SQLiteDBProvider
+from commands import CommandResult, execute_command
+from db import DB, SQLiteDBProvider
 from notes import NotesBook
 from welcome_message import print_welcome_message
 
 
 init(autoreset=True)
 
-
-def as_note(text: str) -> str:
-    """Colorize notes output in yellow."""
-    return f"{Fore.YELLOW}{text}{Style.RESET_ALL}"
-
-
-def as_command(text: str) -> str:
-    """Colorize command-related output in blue."""
-    return f"{Fore.BLUE}{text}{Style.RESET_ALL}"
-
-
-def as_contact(text: str) -> str:
-    """Colorize contacts output in purple."""
-    return f"{Fore.MAGENTA}{text}{Style.RESET_ALL}"
+# CLI line colors: note=yellow, contact=magenta, command=neon blue (prompts + default messages)
+_NEON_BLUE = "\033[38;2;0;230;255m"  # electric cyan-blue
+_STYLE: dict[str, Callable[[str], str]] = {
+    "note": lambda t: f"{Fore.YELLOW}{t}{Style.RESET_ALL}",
+    "contact": lambda t: f"{Fore.MAGENTA}{t}{Style.RESET_ALL}",
+    "command": lambda t: f"{_NEON_BLUE}{t}{Style.RESET_ALL}",
+}
 
 
 def parse_input(user_input: str) -> tuple[str, list[str]]:
@@ -53,63 +50,113 @@ def save_address_book(book: AddressBook, db: DB) -> None:
     db.save_contacts(book.data)
 
 
-def save_notes_book(notes: NotesBook, db: DB) -> None:
-    """Persist the current notes collection to storage."""
-    db.save_notes(notes.all_notes())
-
-
 def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
     """Load contacts and notes from storage, seeding contacts if empty."""
     contacts_data = db.load_contacts()
     notes_data = db.get_notes()
 
+    # Seed sample contacts when storage is empty
     if contacts_data:
         book = AddressBook(contacts_data)
     else:
         book = seed_book()
         save_address_book(book, db)
 
-    notes_book = NotesBook(notes_data)
-    return book, notes_book
+    return book, NotesBook(notes_data)
 
 
 def prompt_user(prompt_text: str) -> str:
     """Prompt the user with command color and return stripped text."""
-    return input(as_command(prompt_text)).strip()
+    return input(_STYLE["command"](prompt_text)).strip()
 
 
-def main() -> None:
-    """Run the interactive assistant command loop."""
+def print_result(result: CommandResult) -> None:
+    """Print command output with kind-appropriate color."""
+    styler = _STYLE.get(result.kind, _STYLE["command"])
+    print(styler(result.message))
+
+
+def run_app(*, chat_first: bool) -> None:
+    """Run the interactive assistant; optional Gemini chat on startup."""
     provider = SQLiteDBProvider("storage/assistant.db")
-    # Alternative:
-    # provider = PickleDBProvider("storage/assistant.pkl")
+    # Alternative: PickleDBProvider("storage/assistant.pkl")
     db = DB(provider)
     book, notes_book = load_books(db)
     clear_screen()
     print_welcome_message()
 
+    # Shared executor for normal CLI and Gemini tool calls
+    def run_cmd(cmd: str, args: list[str]) -> CommandResult:
+        return execute_command(
+            cmd, args, book=book, notes_book=notes_book, db=db, prompt=prompt_user
+        )
+
+    def execute_for_ai(cmd: str, args: list[str]) -> tuple[str, str, bool]:
+        r = run_cmd(cmd, args)
+        # Same highlight as normal CLI for contact/note tool results (search, phone, lists, …)
+        if r.kind in ("contact", "note"):
+            print_result(r)
+        return r.message, r.kind, r.should_exit
+
+    # Lazy import: only load ai_assistant when entering chat
+    def enter_chat(banner: str | None = None) -> None:
+        from ai_assistant import run_chat_session
+
+        if banner:
+            print(_STYLE["command"](banner))
+        run_chat_session(
+            prompt_fn=prompt_user,
+            print_fn=lambda s: print(_STYLE["command"](s)),
+            execute_fn=execute_for_ai,
+        )
+
+    # AI assistant is ON only with --chat and GEMINI_API_KEY
+    gemini_on = chat_first and is_chat_available()
+    if chat_first and not gemini_on:
+        print(
+            _STYLE["command"](
+                "Flag --chat was set but GEMINI_API_KEY is missing. "
+                "Running normal command mode. Set the key and use --chat or type 'chat'."
+            )
+        )
+    if gemini_on:
+        enter_chat("Gemini chat is ON (--chat + GEMINI_API_KEY). Type exit to leave chat.")
+
     while True:
         user_input = prompt_user("Enter a command(try 'help'): ")
         command, args = parse_input(user_input)
 
-        result = execute_command(
-            command,
-            args,
-            book=book,
-            notes_book=notes_book,
-            db=db,
-            prompt=prompt_user,
-        )
+        # Conversational mode: needs key (same entry as --chat)
+        if command == "chat":
+            if not is_chat_available():
+                print(
+                    _STYLE["command"](
+                        "GEMINI_API_KEY is not set. Export it and restart, or use --chat with the key set."
+                    )
+                )
+                continue
+            enter_chat()
+            continue
 
-        if result.kind == "note":
-            print(as_note(result.message))
-        elif result.kind == "contact":
-            print(as_contact(result.message))
-        else:
-            print(as_command(result.message))
-
+        result = run_cmd(command, args)
+        print_result(result)
         if result.should_exit:
             break
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Personal assistant CLI")
+    parser.add_argument(
+        "--chat",
+        action="store_true",
+        help="If GEMINI_API_KEY is set, start in (or enable) Gemini chat mode on launch.",
+    )
+    args = parser.parse_args()
+    try:
+        run_app(chat_first=args.chat)
+    except KeyboardInterrupt:
+        print(_STYLE["command"]("\nGood bye!"))
+        sys.exit(0)
 
 
 if __name__ == "__main__":

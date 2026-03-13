@@ -29,6 +29,11 @@ python -m pip install -e .
 
 ## Run
 
+Optional: if you want to work with chat mode export API key like so:
+```
+export GEMINI_API_KEY=<GEMINI_API_KYE>
+```
+
 ```bash
 python main.py
 ```
@@ -36,6 +41,11 @@ or just
 
 ```bash
 book
+```
+
+For chat capabilities try:
+```bash
+book --chat
 ```
 
 On first run, the app creates storage at `storage/assistant.pkl` or `storage/assistant.db` depending on DB provider.
@@ -58,7 +68,10 @@ On first run, the app creates storage at `storage/assistant.pkl` or `storage/ass
 - Searches contacts by name or phone fragment.
 - Example: `search 050`
 
-5. `exit` or `close`
+5. `chat` (with `GEMINI_API_KEY`) or `python main.py --chat`
+- Conversational commands via Gemini function calling.
+
+6. `exit` or `close`
 - Exits the application.
 
 ## Notes
