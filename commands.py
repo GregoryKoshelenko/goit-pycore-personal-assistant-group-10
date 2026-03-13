@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from address_book import AddressBook
+from ai_assistant import is_chat_available
 from db import DB
 from notes import NotesBook
 
@@ -305,31 +306,32 @@ def delete_note_command(args: list[str], notes_book: NotesBook, db: DB, prompt: 
 
 def help_command() -> str:
     """Return help message with supported commands."""
-    return "\n".join(
-        [
-            "Available commands:",
-            "- help: show this help message",
-            "- add contact <name> [address] [email] [birthday] [phone1 phone2 ...]: add a new contact",
-            "- edit contact <name>: edit contact fields",
-            "- edit note <id>: edit note text and tags",
-            "- delete contact <name>: delete a contact",
-            "- add note <text>: add a new note",
-            "- show contacts: show all contacts",
-            "- show notes: show all notes",
-            "- notes: show all notes",
-            "- birthdays <days>: show upcoming birthdays",
-            "- search contact <query>: search contacts by name, address, phone, email, or birthday",
-            "- search note <query>: search notes by text or tags",
-            "- search address <query>: search contacts by address field",
-            "- search phone <query>: search contacts by phone field",
-            "- search email <query>: search contacts by email field",
-            "- search birthday <query>: search contacts by birthday field",
-            "- search tag <query>: search notes by tag field",
-            "- delete note <id>: delete a note",
-            "- phone <name>: show full contact details",
-            "- close | exit: quit the assistant",
-        ]
-    )
+    lines = [
+        "Available commands:",
+        "- help: show this help message",
+        "- add contact <name> [address] [email] [birthday] [phone1 phone2 ...]: add a new contact",
+        "- edit contact <name>: edit contact fields",
+        "- edit note <id>: edit note text and tags",
+        "- delete contact <name>: delete a contact",
+        "- add note <text>: add a new note",
+        "- show contacts: show all contacts",
+        "- show notes: show all notes",
+        "- notes: show all notes",
+        "- birthdays <days>: show upcoming birthdays",
+        "- search contact <query>: search contacts by name, address, phone, email, or birthday",
+        "- search note <query>: search notes by text or tags",
+        "- search address <query>: search contacts by address field",
+        "- search phone <query>: search contacts by phone field",
+        "- search email <query>: search contacts by email field",
+        "- search birthday <query>: search contacts by birthday field",
+        "- search tag <query>: search notes by tag field",
+        "- delete note <id>: delete a note",
+        "- phone <name>: show full contact details",
+    ]
+    if is_chat_available():
+        lines.append("- chat: conversational mode (requires GEMINI_API_KEY)")
+    lines.append("- close | exit: quit the assistant")
+    return "\n".join(lines)
 
 
 def execute_command(

@@ -21,6 +21,7 @@ dist/
 # Local IDE/editor settings
 .idea/
 .vscode/
+.env
 
 # OS files
 .DS_Store
