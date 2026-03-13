@@ -11,11 +11,12 @@ requires-python = ">=3.12"
 dependencies = [
     "SQLAlchemy>=2.0.0",
     "colorama>=0.4.6",
+    "google-generativeai>=0.8.6"
 ]
 
 [project.scripts]
 book = "main:main"
 
 [tool.setuptools]
-py-modules = ["main", "address_book", "notes", "welcome_message", "commands"]
+py-modules = ["main", "address_book", "notes", "welcome_message", "commands", "ai_assistant"]
 packages = ["db", "orm", "data_types"]
