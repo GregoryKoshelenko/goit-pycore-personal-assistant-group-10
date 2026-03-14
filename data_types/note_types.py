@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict
 
-from data_types.fields import NoteText, Tag
+from data_types.note_text_field import NoteText
+from data_types.tag_field import Tag
 
 
 @dataclass(slots=True)

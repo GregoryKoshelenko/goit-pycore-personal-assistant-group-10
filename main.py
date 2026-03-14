@@ -1,26 +1,17 @@
 import argparse
 import os
 import sys
-from collections.abc import Callable
-
 from address_book import AddressBook
 from ai_assistant import is_chat_available
-from colorama import Fore, Style, init
+from colorama import init
 from commands import CommandResult, execute_command
+from styles import CLI_STYLERS
 from db import DB, SQLiteDBProvider
 from notes import NotesBook
 from welcome_message import print_welcome_message
 
 
 init(autoreset=True)
-
-# CLI line colors: note=yellow, contact=magenta, command=neon blue (prompts + default messages)
-_NEON_BLUE = "\033[38;2;0;230;255m"  # electric cyan-blue
-_STYLE: dict[str, Callable[[str], str]] = {
-    "note": lambda t: f"{Fore.YELLOW}{t}{Style.RESET_ALL}",
-    "contact": lambda t: f"{Fore.MAGENTA}{t}{Style.RESET_ALL}",
-    "command": lambda t: f"{_NEON_BLUE}{t}{Style.RESET_ALL}",
-}
 
 
 def parse_input(user_input: str) -> tuple[str, list[str]]:
@@ -41,13 +32,8 @@ def seed_book() -> AddressBook:
     book = AddressBook()
     book.add_contact(contact_id=DB.next_id(book.data), name="Alice", phones=["0501234567"])
     book.add_contact(contact_id=DB.next_id(book.data), name="Bob", phones=["0670001122", "0998887766"])
-    book.add_contact(contact_id=DB.next_id(book.data), name="Carol", phones=["+38 (050) 555-12-34"])
+    book.add_contact(contact_id=DB.next_id(book.data), name="Carol", phones=["0505551234"])
     return book
-
-
-def save_address_book(book: AddressBook, db: DB) -> None:
-    """Persist the current address book state to storage."""
-    db.save_contacts(book.data)
 
 
 def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
@@ -60,19 +46,20 @@ def load_books(db: DB) -> tuple[AddressBook, NotesBook]:
         book = AddressBook(contacts_data)
     else:
         book = seed_book()
-        save_address_book(book, db)
+        if db.save_contacts(book.data):
+            raise RuntimeError("Could not seed initial contacts to storage.")
 
     return book, NotesBook(notes_data)
 
 
 def prompt_user(prompt_text: str) -> str:
     """Prompt the user with command color and return stripped text."""
-    return input(_STYLE["command"](prompt_text)).strip()
+    return input(CLI_STYLERS["command"](prompt_text)).strip()
 
 
 def print_result(result: CommandResult) -> None:
     """Print command output with kind-appropriate color."""
-    styler = _STYLE.get(result.kind, _STYLE["command"])
+    styler = CLI_STYLERS.get(result.kind, CLI_STYLERS["command"])
     print(styler(result.message))
 
 
@@ -103,10 +90,10 @@ def run_app(*, chat_first: bool) -> None:
         from ai_assistant import run_chat_session
 
         if banner:
-            print(_STYLE["command"](banner))
+            print(CLI_STYLERS["command"](banner))
         run_chat_session(
             prompt_fn=prompt_user,
-            print_fn=lambda s: print(_STYLE["command"](s)),
+            print_fn=lambda s: print(CLI_STYLERS["command"](s)),
             execute_fn=execute_for_ai,
         )
 
@@ -114,7 +101,7 @@ def run_app(*, chat_first: bool) -> None:
     gemini_on = chat_first and is_chat_available()
     if chat_first and not gemini_on:
         print(
-            _STYLE["command"](
+            CLI_STYLERS["command"](
                 "Flag --chat was set but GEMINI_API_KEY is missing. "
                 "Running normal command mode. Set the key and use --chat or type 'chat'."
             )
@@ -130,7 +117,7 @@ def run_app(*, chat_first: bool) -> None:
         if command == "chat":
             if not is_chat_available():
                 print(
-                    _STYLE["command"](
+                    CLI_STYLERS["command"](
                         "GEMINI_API_KEY is not set. Export it and restart, or use --chat with the key set."
                     )
                 )
@@ -155,7 +142,7 @@ def main() -> None:
     try:
         run_app(chat_first=args.chat)
     except KeyboardInterrupt:
-        print(_STYLE["command"]("\nGood bye!"))
+        print(CLI_STYLERS["command"]("\nGood bye!"))
         sys.exit(0)
 
 

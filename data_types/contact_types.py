@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict
+from typing import Dict, cast
 
-from data_types.fields import Address, Birthday, Email, Name, Phone
+from data_types.address_field import Address
+from data_types.birthday_field import Birthday
+from data_types.email_field import Email
+from data_types.field_utils import normalize_optional, normalize_required
+from data_types.name_field import Name
+from data_types.phone_field import Phone
 
 
 @dataclass(slots=True)
@@ -14,12 +19,12 @@ class Contact:
     birthday: datetime | None = None
 
     def __post_init__(self) -> None:
-        """Normalize contact values through dedicated field types."""
-        self.name = str(self.name) if isinstance(self.name, Name) else str(Name(self.name))
-        self.address = None if self.address is None else (str(self.address) if isinstance(self.address, Address) else str(Address(self.address)))
-        self.phones = [str(phone) if isinstance(phone, Phone) else str(Phone(phone)) for phone in self.phones]
-        self.email = None if self.email is None else (str(self.email) if isinstance(self.email, Email) else str(Email(self.email)))
-        self.birthday = None if self.birthday is None else (self.birthday.value if isinstance(self.birthday, Birthday) else Birthday(self.birthday).value)
+        """Normalize contact values through dedicated field types (Field.value)."""
+        self.name = cast(str, normalize_required(self.name, Name))
+        self.address = cast(str | None, normalize_optional(self.address, Address))
+        self.phones = [cast(str, normalize_required(phone, Phone)) for phone in self.phones]
+        self.email = cast(str | None, normalize_optional(self.email, Email))
+        self.birthday = cast(datetime | None, normalize_optional(self.birthday, Birthday))
 
 
-Contacts = Dict[int, Contact]
+Contacts = Dict[str, Contact]

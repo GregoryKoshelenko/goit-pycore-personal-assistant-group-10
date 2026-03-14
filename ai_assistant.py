@@ -206,16 +206,18 @@ def _function_declarations() -> list[dict[str, Any]]:
     ]
 
 
-SYSTEM_INSTRUCTION = """You are the Personal Assistant CLI copilot. You map user requests to exactly one function when possible.
+SYSTEM_INSTRUCTION = """You are a helpful Personal Assistant copilot with two roles:
+
+1) **Local app actions** — add/edit/delete contacts and notes, list, search the user's address book and notes (the only tools you have).
+2) **General assistant** — answer from general knowledge when no tool is needed.
 
 Rules:
-- If the user wants to run an action (add contact, search, list, etc.), call the matching function with the arguments you can infer.
-- If required information is missing (e.g. which contact, which note id), do NOT guess: reply in plain text with ONE short clarifying question.
-- If the user is vague (e.g. "delete something"), ask what exactly: contact vs note, and which name or id.
+- **Beyond local tools** (live news, LinkedIn, current prices, "find this person online", anything needing the open web): you cannot browse or search from this app. Tell the user clearly, then **ask them to search in a browser** (Google, LinkedIn, etc.) and give a **concrete search query** they can paste. If they have a saved contact, suggest using **search_contact** / **phone** first so they can copy email/name into their own search.
+- **App actions**: call the matching function for address book / notes only.
+- Generic math, coding, advice: plain text; no tool.
+- If required info is missing for an app action, ask ONE short clarifying question.
 - For add_contact, always include name; use phones array for phone numbers.
-- Never invent contact names or note ids; ask the user.
-- Small talk or meta questions: answer briefly in text without calling a function unless they ask to run a command.
-- After contact/note tools (search, phone, lists): the app already printed results in color—one short follow-up line only; do not repeat full listings.
+- After contact/note tools: the app already printed results—one short follow-up only; do not repeat full listings.
 """
 
 
@@ -317,72 +319,68 @@ class ChatTurnResult:
     should_exit: bool
 
 
+def _fn_response(tool_name: str, *, ok: bool, result: str | None = None, error: str | None = None) -> dict[str, Any]:
+    """Single Gemini functionResponse part."""
+    payload: dict[str, Any] = {"ok": ok}
+    if result is not None:
+        payload["result"] = result
+    if error is not None:
+        payload["error"] = error
+    return {"functionResponse": {"name": tool_name, "response": payload}}
+
+
 def run_chat_turn(
     api_key: str,
     contents: list[dict[str, Any]],
     *,
     execute_fn: Callable[[str, list[str]], tuple[str, str, bool]],
+    max_rounds: int = 8,
 ) -> tuple[list[dict[str, Any]], ChatTurnResult]:
     """
-    One user message may trigger multiple model rounds (function call -> result -> final text).
-    execute_fn(command, args) -> (message, kind, should_exit)
-    Returns updated contents and final turn result.
+    Model round-trip: optional function calls via execute_fn, then optional final text.
+    execute_fn(cmd, args) -> (message, kind, should_exit)
     """
-    tools = [{"functionDeclarations": _function_declarations()}]
     body: dict[str, Any] = {
         "contents": contents,
-        "tools": tools,
+        "tools": [{"functionDeclarations": _function_declarations()}],
         "toolConfig": {"functionCallingConfig": {"mode": "AUTO"}},
         "systemInstruction": {"parts": [{"text": SYSTEM_INSTRUCTION}]},
     }
-    max_rounds = 8
+
     for _ in range(max_rounds):
         raw = _api_request(api_key, body)
-        candidates = raw.get("candidates") or []
-        if not candidates:
-            msg = raw.get("error", {}).get("message") or json.dumps(raw)[:500]
-            return contents, ChatTurnResult(assistant_text=f"API error: {msg}", should_exit=False)
-        cand = candidates[0]
-        parts = _parts_from_candidate(cand)
-        model_content = cand.get("content") or {"role": "model", "parts": parts}
+        cands = raw.get("candidates") or []
+        if not cands:
+            err = raw.get("error", {}).get("message") or json.dumps(raw)[:500]
+            return contents, ChatTurnResult(f"API error: {err}", False)
+
+        parts = _parts_from_candidate(cands[0])
+        model_msg = cands[0].get("content") or {"role": "model", "parts": parts}
+        contents.append(model_msg)
+
         calls = _function_calls_from_parts(parts)
-
         if not calls:
-            text = _text_from_parts(parts)
-            contents.append(model_content)
-            return contents, ChatTurnResult(assistant_text=text or None, should_exit=False)
+            return contents, ChatTurnResult(_text_from_parts(parts) or None, False)
 
-        contents.append(model_content)
-        response_parts: list[dict[str, Any]] = []
-        should_exit = False
+        responses: list[dict[str, Any]] = []
+        exit_app = False
         for fc in calls:
-            fname = fc.get("name") or ""
-            fargs = dict(fc.get("args") or {})
+            name = (fc.get("name") or "").strip() or "unknown"
             try:
-                cmd, cmd_args = function_call_to_command(fname, fargs)
+                cmd, args = function_call_to_command(name, dict(fc.get("args") or {}))
             except Exception as e:
-                response_parts.append(
-                    {
-                        "functionResponse": {
-                            "name": fname,
-                            "response": {"error": str(e), "ok": False},
-                        }
-                    }
-                )
+                responses.append(_fn_response(name, ok=False, error=str(e)))
                 continue
-            msg, _kind, exit_flag = execute_fn(cmd, cmd_args)
-            should_exit = should_exit or exit_flag
-            response_parts.append(
-                {"functionResponse": {"name": fname, "response": {"result": msg, "ok": True}}}
-            )
-        contents.append({"role": "user", "parts": response_parts})
-        if should_exit:
-            return contents, ChatTurnResult(assistant_text=None, should_exit=True)
+            msg, _, should_exit = execute_fn(cmd, args)
+            exit_app |= should_exit
+            responses.append(_fn_response(name, ok=True, result=msg))
+
+        contents.append({"role": "user", "parts": responses})
+        if exit_app:
+            return contents, ChatTurnResult(None, True)
         body["contents"] = contents
 
-    return contents, ChatTurnResult(
-        assistant_text="Too many tool rounds; try a simpler request.", should_exit=False
-    )
+    return contents, ChatTurnResult("Too many tool rounds; try a simpler request.", False)
 
 
 def run_chat_session(
@@ -396,7 +394,10 @@ def run_chat_session(
     if not key:
         print_fn("GEMINI_API_KEY is not set; chat is unavailable.")
         return
-    print_fn("Chat mode — natural language maps to commands. Type 'exit' or 'quit' to leave chat.")
+    print_fn(
+        "Chat mode — app commands and general Q&A. For live web info, the assistant will suggest browser searches. "
+        "Type 'exit' or 'quit' to leave."
+    )
     contents: list[dict[str, Any]] = []
     while True:
         line = prompt_fn("chat> ").strip()

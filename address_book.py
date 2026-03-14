@@ -1,22 +1,12 @@
 from collections import UserDict
 from datetime import date, datetime
-import re
 
-from colorama import Fore, Style
+from colorama import Fore
 from data_types.contact_types import Contact, Contacts
+from data_types.phone_field import Phone
+from text_utils import highlight_matches
 
-
-def normalize_phone(value: str) -> str:
-    """Normalize a phone value by removing non-digit characters."""
-    return re.sub(r"\D", "", value or "")
-
-
-def highlight_matches(value: str, query: str, *, base_color: str = Fore.MAGENTA) -> str:
-    """Highlight matched query fragments inside a field value."""
-    if not value or not query:
-        return value
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
-    return pattern.sub(lambda match: f"{Fore.YELLOW}{Style.BRIGHT}{match.group(0)}{Style.NORMAL}{base_color}", value)
+_MAGENTA = Fore.MAGENTA
 
 
 class AddressBook(UserDict):
@@ -82,15 +72,17 @@ class AddressBook(UserDict):
         """Render contact fields with highlighted query matches."""
         birthday = contact.birthday.strftime("%d.%m.%Y") if isinstance(contact.birthday, datetime) else "-"
         phones = contact.phones if contact.phones else ["-"]
-        phone_query = normalize_phone(query) or query
-        highlighted_phones = ", ".join(highlight_matches(phone, phone_query) for phone in phones)
+        phone_query = Phone.normalize(query) or query
+        highlighted_phones = ", ".join(
+            highlight_matches(phone, phone_query, base_color=_MAGENTA) for phone in phones
+        )
         return "\n".join(
             [
-                f"Name: {highlight_matches(contact.name, query)}",
-                f"Address: {highlight_matches(contact.address or '-', query)}",
+                f"Name: {highlight_matches(contact.name, query, base_color=_MAGENTA)}",
+                f"Address: {highlight_matches(contact.address or '-', query, base_color=_MAGENTA)}",
                 f"Phones: {highlighted_phones}",
-                f"Email: {highlight_matches(contact.email or '-', query)}",
-                f"Birthday: {highlight_matches(birthday, query)}",
+                f"Email: {highlight_matches(contact.email or '-', query, base_color=_MAGENTA)}",
+                f"Birthday: {highlight_matches(birthday, query, base_color=_MAGENTA)}",
             ]
         )
 
@@ -179,7 +171,7 @@ class AddressBook(UserDict):
         if not query_text:
             return []
 
-        query_digits = normalize_phone(query_text)
+        query_digits = Phone.normalize(query_text)
         results: list[Contact] = []
         for contact in self.data.values():
             birthday = contact.birthday.strftime("%d.%m.%Y") if isinstance(contact.birthday, datetime) else ""
@@ -190,7 +182,7 @@ class AddressBook(UserDict):
                 birthday,
             ]
             text_match = any(query_text in field.lower() for field in searchable_fields)
-            phone_match = bool(query_digits) and any(query_digits in normalize_phone(phone) for phone in contact.phones)
+            phone_match = bool(query_digits) and any(query_digits in Phone.normalize(phone) for phone in contact.phones)
             if text_match or phone_match:
                 results.append(contact)
         return results
@@ -202,7 +194,7 @@ class AddressBook(UserDict):
             return []
 
         normalized_field = field_name.strip().lower()
-        query_digits = normalize_phone(query_text)
+        query_digits = Phone.normalize(query_text)
         results: list[Contact] = []
         for contact in self.data.values():
             birthday = contact.birthday.strftime("%d.%m.%Y") if isinstance(contact.birthday, datetime) else ""
@@ -216,7 +208,7 @@ class AddressBook(UserDict):
             }.get(normalized_field, "")
 
             if normalized_field == "phone":
-                matched = bool(query_digits) and any(query_digits in normalize_phone(phone) for phone in contact.phones)
+                matched = bool(query_digits) and any(query_digits in Phone.normalize(phone) for phone in contact.phones)
             else:
                 matched = query_text in field_value.lower()
 

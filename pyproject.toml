@@ -17,5 +17,5 @@ dependencies = [
 book = "main:main"
 
 [tool.setuptools]
-py-modules = ["main", "address_book", "notes", "welcome_message", "commands", "ai_assistant"]
+py-modules = ["main", "address_book", "notes", "styles", "text_utils", "welcome_message", "commands", "ai_assistant"]
 packages = ["db", "orm", "data_types"]

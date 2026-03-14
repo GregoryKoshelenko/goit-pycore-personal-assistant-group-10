@@ -68,10 +68,14 @@ On first run, the app creates storage at `storage/assistant.pkl` or `storage/ass
 - Searches contacts by name or phone fragment.
 - Example: `search 050`
 
-5. `chat` (with `GEMINI_API_KEY`) or `python main.py --chat`
-- Conversational commands via Gemini function calling.
+5. `birthdays <days>` or `show birthdays <days>`
+- Lists contacts with a birthday in the next N days.
+- Example: `birthdays 7`
 
-6. `exit` or `close`
+6. `chat` (with `GEMINI_API_KEY`) or `python main.py --chat`
+- Conversational mode: app commands and general Q&A. For anything needing the live web, the assistant suggests **browser searches** (no built-in web search in the app).
+
+7. `exit` or `close`
 - Exits the application.
 
 ## Notes

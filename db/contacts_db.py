@@ -1,14 +1,40 @@
 from collections.abc import Mapping
 from dataclasses import asdict
 import logging
+import re
 
 from data_types.contact_types import Contact, Contacts
 from data_types.note_types import Note, Notes
+from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 
 from db.db_provider import DBProvider
 
 
 logger = logging.getLogger(__name__)
+
+
+def _friendly_save_error(exc: BaseException) -> str:
+    """Turn DB errors into short CLI-facing text."""
+    if isinstance(exc, IntegrityError):
+        raw = str(exc.orig) if getattr(exc, "orig", None) else str(exc)
+        m = re.search(r"UNIQUE constraint failed:\s*([\w.]+)", raw, re.I)
+        if m:
+            col = m.group(1).split(".")[-1]
+            return (
+                f"Could not save: unique constraint on «{col}» (duplicate value). "
+                "Change that field and try again."
+            )
+        if "NOT NULL" in raw.upper():
+            return "Could not save: a required field is empty."
+        return "Could not save: data breaks a database rule (duplicate or missing value)."
+    if isinstance(exc, DBAPIError):
+        logger.exception("Database error during save")
+        return "Could not save to storage (database error). Try again or check the log."
+    if isinstance(exc, SQLAlchemyError):
+        logger.exception("SQLAlchemy error during save")
+        return "Could not save to storage. Try again."
+    logger.exception("Unexpected error during save")
+    return f"Could not save: {type(exc).__name__}. Try again."
 
 
 class DB:
@@ -47,12 +73,23 @@ class DB:
                     continue
         return contacts
 
-    def save_contacts(self, contacts: Contacts) -> None:
-        """Serialize and persist all contacts."""
-        serialized: dict[int, object] = {
-            contact_id: asdict(contact) for contact_id, contact in contacts.items()
-        }
-        self.save_table("contacts", serialized)
+    def save_contacts(self, contacts: Contacts) -> str | None:
+        """
+        Serialize and persist all contacts.
+        None = success; str = user-facing error (unique constraint, DB, etc.).
+        On failure, ``contacts`` is reloaded from storage so it matches the DB.
+        """
+        try:
+            serialized: dict[int, object] = {
+                contact_id: asdict(contact) for contact_id, contact in contacts.items()
+            }
+            self.save_table("contacts", serialized)
+        except Exception as e:
+            err = _friendly_save_error(e)
+            contacts.clear()
+            contacts.update(self.load_contacts())
+            return err
+        return None
 
     def get_contact(self, contact_id: int) -> Contact | None:
         """Return one contact by id as a domain object if present."""
@@ -96,12 +133,22 @@ class DB:
                 notes[note_id] = Note(**dict(item))
         return notes
 
-    def save_notes(self, notes: Notes) -> None:
-        """Serialize and persist all notes."""
-        serialized: dict[int, object] = {
-            note_id: asdict(note) for note_id, note in notes.items()
-        }
-        self.save_table("notes", serialized)
+    def save_notes(self, notes: Notes) -> str | None:
+        """
+        Serialize and persist all notes. None = ok, str = user-facing error.
+        On failure, ``notes`` is reloaded from storage so it matches the DB.
+        """
+        try:
+            serialized: dict[int, object] = {
+                note_id: asdict(note) for note_id, note in notes.items()
+            }
+            self.save_table("notes", serialized)
+        except Exception as e:
+            err = _friendly_save_error(e)
+            notes.clear()
+            notes.update(self.get_notes())
+            return err
+        return None
 
     def get_note(self, note_id: int) -> Note | None:
         """Return one note by id as a domain object if present."""

@@ -1,19 +1,8 @@
-import re
 from typing import List, Optional
 
-from colorama import Back, Fore, Style
 from data_types.note_types import Note, Notes
-
-
-def highlight_matches(value: str, query: str, *, base_color: str = Fore.YELLOW) -> str:
-    """Highlight matched query fragments inside note text."""
-    if not value or not query:
-        return value
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
-    return pattern.sub(
-        lambda match: f"{Back.YELLOW}{Fore.BLACK}{Style.BRIGHT}{match.group(0)}{Style.NORMAL}{Back.RESET}{base_color}",
-        value,
-    )
+from styles import NOTE_FORE
+from text_utils import highlight_matches
 
 
 class NotesBook:
@@ -29,10 +18,9 @@ class NotesBook:
         self._notes: Notes = notes_data.copy() if notes_data else {}
 
     def add_note(self, note_id: int, text: str, tags: Optional[List[str]] = None) -> int:
-        """Create and add a new note to the collection."""
+        """Create and add a new note; body/tags validated via Note / field types."""
         if note_id in self._notes:
             raise ValueError(f"Note id={note_id} already exists.")
-
         self._notes[note_id] = Note(text=text, tags=tags or [])
         return note_id
 
@@ -62,7 +50,6 @@ class NotesBook:
         )
         note.text = updated.text
         note.tags = updated.tags
-
         return note
 
     def remove_note(self, note_id: int) -> bool:
@@ -81,8 +68,9 @@ class NotesBook:
     @staticmethod
     def format_note_search_result(note_id: int, note: Note, query: str) -> str:
         """Render one note with highlighted query matches."""
-        tags = ", ".join(highlight_matches(tag, query) for tag in note.tags)
-        return f"#{note_id}: {highlight_matches(note.text, query)}" + (f" [tags: {tags}]" if tags else "")
+        tags = ", ".join(highlight_matches(tag, query, base_color=NOTE_FORE, block=True) for tag in note.tags)
+        body = highlight_matches(note.text, query, base_color=NOTE_FORE, block=True)
+        return f"#{note_id}: {body}" + (f" [tags: {tags}]" if tags else "")
 
     def render_all_notes(self) -> str:
         """Render all notes as a multi-line string."""
@@ -126,7 +114,8 @@ class NotesBook:
             note_id: note
             for note_id, note in self._notes.items()
             if (
-                normalized_field == "note" and (query_lower in note.text.lower() or any(query_lower in tag.lower() for tag in note.tags))
+                normalized_field == "note"
+                and (query_lower in note.text.lower() or any(query_lower in tag.lower() for tag in note.tags))
             )
             or (normalized_field == "text" and query_lower in note.text.lower())
             or (normalized_field == "tag" and any(query_lower in tag.lower() for tag in note.tags))
@@ -140,9 +129,7 @@ class NotesBook:
             return len(tags_lower.intersection({t.lower() for t in note.tags}))
 
         notes_with_score = [(note_id, note, match_score(note)) for note_id, note in self._notes.items()]
-        # Filter only notes that have at least one match
         filtered_with_score = [(note_id, note, score) for note_id, note, score in notes_with_score if score > 0]
-        # Sort by relevance score descending
         filtered_with_score.sort(key=lambda item: item[2], reverse=True)
         return {note_id: note for note_id, note, _ in filtered_with_score}
 
@@ -152,4 +139,3 @@ class NotesBook:
         for note in self._notes.values():
             unique_tags.update(note.tags)
         return sorted(list(unique_tags))
-
