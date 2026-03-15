@@ -20,6 +20,8 @@ Install python if you dont have it already isntalled: https://www.python.org/dow
 python -m venv .venv
 source .venv/bin/activate
 ```
+For Windows
+source .venv/Scripts/activate
 
 2. Install dependencies:
 
@@ -65,4 +67,3 @@ On first run, the app creates storage at `storage/assistant.pkl` or `storage/ass
 
 - Contact names are currently parsed as a single word in `add contact`.
 - Phone numbers are normalized to digits.
-
