@@ -3,7 +3,7 @@
 Simple personal assistant CLI app for storing contacts and notes
 
 ## Demo 
-[![asciicast](https://asciinema.org/a/6M1b8gTgeneY8IuV.svg)](https://asciinema.org/a/6M1b8gTgeneY8IuV)
+[![asciicast](https://asciinema.org/a/842200.svg)](https://asciinema.org/a/842200)
 
 ## What it does
 - Adds and saves contacts
